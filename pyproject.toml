@@ -2,6 +2,7 @@
 name = "PGX Lab Result Summarizer"
 version = "0.1.0"
 description = ""
+authors = ["bilal <ibilalfaiz@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 
