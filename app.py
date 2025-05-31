@@ -2,6 +2,7 @@ import os
 import base64
 import re
 import json
+import uuid
 
 import streamlit as st
 import openai
@@ -9,15 +10,34 @@ from openai import AssistantEventHandler
 from tools import TOOL_MAP
 from typing_extensions import override
 from dotenv import load_dotenv
+from chat_db import init_db, save_message, get_chat_history
 import streamlit_authenticator as stauth
+import sqlite3
 
 load_dotenv()
-
+init_db()
+if "session_id" not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())
 
 def str_to_bool(str_input):
     if not isinstance(str_input, str):
         return False
     return str_input.lower() == "true"
+
+def get_sessions():
+    print("get_sessions: Opening DB connection...")
+    conn = sqlite3.connect("chat_history.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT session_id FROM chat_log ORDER BY timestamp DESC")
+    return [row[0] for row in cursor.fetchall()]
+
+def load_messages(session_id):
+    conn = sqlite3.connect("chat_history.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT role, message FROM chat_log WHERE session_id = ? ORDER BY timestamp", (session_id,))
+
+    rows = cursor.fetchall()
+    return [{"name": row[0], "msg": row[1]} for row in rows]
 
 
 # Load environment variables
@@ -80,6 +100,9 @@ class EventHandler(AssistantEventHandler):
         format_text = format_annotation(text)
         st.session_state.current_markdown.markdown(format_text, True)
         st.session_state.chat_log.append({"name": "assistant", "msg": format_text})
+        save_message(st.session_state.session_id, "assistant", format_text)
+
+
 
     @override
     def on_tool_call_created(self, tool_call):
@@ -114,6 +137,7 @@ class EventHandler(AssistantEventHandler):
             input_code = f"### code interpreter\ninput:\n```python\n{tool_call.code_interpreter.input}\n```"
             st.session_state.current_tool_input_markdown.markdown(input_code, True)
             st.session_state.chat_log.append({"name": "assistant", "msg": input_code})
+            save_message(st.session_state.session_id, "assistant", output)
             st.session_state.current_tool_input_markdown = None
             for output in tool_call.code_interpreter.outputs:
                 if output.type == "logs":
@@ -251,6 +275,7 @@ def reset_chat():
 
 
 def load_chat_screen(assistant_id, assistant_title):
+    print(f"load_chat_screen: Loading chat for assistant '{assistant_title}' (ID: {assistant_id})")
     if enabled_file_upload_message:
         uploaded_file = st.sidebar.file_uploader(
             enabled_file_upload_message,
@@ -277,6 +302,8 @@ def load_chat_screen(assistant_id, assistant_title):
         with st.chat_message("user"):
             st.markdown(user_msg, True)
         st.session_state.chat_log.append({"name": "user", "msg": user_msg})
+        save_message(st.session_state.session_id, "user", user_msg)  
+
 
         file = None
         if uploaded_file is not None:
@@ -290,6 +317,7 @@ def load_chat_screen(assistant_id, assistant_title):
 
 
 def main():
+    
     # Check if multi-agent settings are defined
     multi_agents = os.environ.get("OPENAI_ASSISTANTS", None)
     single_agent_id = os.environ.get("ASSISTANT_ID", None)
@@ -306,6 +334,19 @@ def main():
             return
         else:
             authenticator.logout(location="sidebar")
+
+    with st.sidebar:
+        st.markdown("## 🕓 Chat History")
+        session_list = get_sessions()
+       
+
+        if session_list:
+            selected_session = st.selectbox("View a saved session", session_list)
+            if selected_session:
+                messages = load_messages(selected_session)
+                
+        else:
+            st.info("No saved sessions found.")
 
     if multi_agents:
         assistants_json = json.loads(multi_agents)
@@ -326,6 +367,8 @@ def main():
         load_chat_screen(single_agent_id, single_agent_title)
     else:
         st.error("No assistant configurations defined in environment variables.")
+
+        
 
 
 if __name__ == "__main__":
