@@ -10,7 +10,7 @@ from openai import AssistantEventHandler
 from tools import TOOL_MAP
 from typing_extensions import override
 from dotenv import load_dotenv
-from chat_db import init_db, save_message, get_chat_history
+from chat_db import init_db, save_message,get_sessions,load_messages
 import streamlit_authenticator as stauth
 import sqlite3
 
@@ -24,20 +24,7 @@ def str_to_bool(str_input):
         return False
     return str_input.lower() == "true"
 
-def get_sessions():
-    print("get_sessions: Opening DB connection...")
-    conn = sqlite3.connect("chat_history.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT session_id FROM chat_log ORDER BY timestamp DESC")
-    return [row[0] for row in cursor.fetchall()]
 
-def load_messages(session_id):
-    conn = sqlite3.connect("chat_history.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT role, message FROM chat_log WHERE session_id = ? ORDER BY timestamp", (session_id,))
-
-    rows = cursor.fetchall()
-    return [{"name": row[0], "msg": row[1]} for row in rows]
 
 
 # Load environment variables
@@ -273,6 +260,11 @@ def reset_chat():
     st.session_state.chat_log = []
     st.session_state.in_progress = False
 
+def start_new_chat():
+    st.session_state.session_id = str(uuid.uuid4())
+    st.session_state.chat_log = []
+    st.session_state.selected_session_id = None  # Optional: If you use dropdown for history
+
 
 def load_chat_screen(assistant_id, assistant_title):
     print(f"load_chat_screen: Loading chat for assistant '{assistant_title}' (ID: {assistant_id})")
@@ -336,14 +328,34 @@ def main():
             authenticator.logout(location="sidebar")
 
     with st.sidebar:
+        if st.sidebar.button("➕ Start New Chat"):
+            start_new_chat()
+            st.rerun()
+
+
         st.markdown("## 🕓 Chat History")
         session_list = get_sessions()
        
 
         if session_list:
-            selected_session = st.selectbox("View a saved session", session_list)
-            if selected_session:
-                messages = load_messages(selected_session)
+            previous_session = st.session_state.get("session_id")
+            session_list_with_placeholder = ["📂 Select a previous chat"] + session_list
+
+            selected_session = st.selectbox(
+                "View a saved session",
+                session_list_with_placeholder,
+                index=0
+            )
+
+            if selected_session != "📂 Select a previous chat":
+                previous_session = st.session_state.get("session_id")
+                if selected_session != previous_session:
+                    messages = load_messages(selected_session)
+                    st.session_state.chat_log = messages
+                    st.session_state.session_id = selected_session
+                    st.rerun()
+
+
                 
         else:
             st.info("No saved sessions found.")

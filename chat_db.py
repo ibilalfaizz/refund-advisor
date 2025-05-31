@@ -32,39 +32,20 @@ def save_message(session_id, role, message):
     conn.close()
     print("save_message: Message saved ✅")
 
-# Get all chat history
-def get_chat_history():
+
+
+def get_sessions():
+    print("get_sessions: Opening DB connection...")
     conn = sqlite3.connect("chat_history.db")
-    c = conn.cursor()
-    c.execute("SELECT role, message, timestamp FROM chat_log ORDER BY id ASC")
-    rows = c.fetchall()
-    conn.close()
-    return rows
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT session_id FROM chat_log ORDER BY timestamp DESC")
+    return [row[0] for row in cursor.fetchall()]
 
-# Clear chat history (optional, if you want a reset button)
-def clear_chat_history():
+def load_messages(session_id):
     conn = sqlite3.connect("chat_history.db")
-    c = conn.cursor()
-    c.execute("DELETE FROM chat_log")
-    conn.commit()
-    conn.close()
+    cursor = conn.cursor()
+    cursor.execute("SELECT role, message FROM chat_log WHERE session_id = ? ORDER BY timestamp", (session_id,))
 
-def get_all_sessions():
-    with sqlite3.connect("chat_history.db") as conn:
-        c = conn.cursor()
-        c.execute("SELECT DISTINCT session_id FROM chat_log ORDER BY id DESC")
-        sessions = [row[0] for row in c.fetchall()]
-    return sessions
-
-def get_chat_history(session_id=None):
-    with sqlite3.connect("chat_history.db") as conn:
-        c = conn.cursor()
-        if session_id:
-            c.execute(
-                "SELECT role, message, timestamp FROM chat_log WHERE session_id = ? ORDER BY id ASC",
-                (session_id,)
-            )
-        else:
-            c.execute("SELECT role, message, timestamp FROM chat_log ORDER BY id ASC")
-        return c.fetchall()
+    rows = cursor.fetchall()
+    return [{"name": row[0], "msg": row[1]} for row in rows]
 
