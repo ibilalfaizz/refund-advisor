@@ -195,6 +195,9 @@ if "chat_log" not in st.session_state:
 if "in_progress" not in st.session_state:
     st.session_state.in_progress = False
 
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
+
 def disable_form():
     st.session_state.in_progress = True
 
@@ -205,12 +208,16 @@ def reset_chat():
 def start_new_chat():
     st.session_state.session_id = str(uuid.uuid4())
     st.session_state.chat_log = []
+    st.session_state.uploader_key += 1
+    st.rerun()
 
 def load_chat_screen(assistant_id, assistant_title):
     uploaded_file = st.sidebar.file_uploader(
         enabled_file_upload_message,
         type=["txt", "pdf", "csv", "json", "geojson", "xlsx", "xls"],
         disabled=st.session_state.in_progress,
+        key=f"file_uploader_{st.session_state.uploader_key}"
+        
     )
     st.title(assistant_title if assistant_title else "")
     user_msg = st.chat_input("Message", on_submit=disable_form, disabled=st.session_state.in_progress)
