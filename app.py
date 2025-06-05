@@ -195,6 +195,7 @@ if "chat_log" not in st.session_state:
 if "in_progress" not in st.session_state:
     st.session_state.in_progress = False
 
+# Initialize the uploader key counter
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 
@@ -216,8 +217,7 @@ def load_chat_screen(assistant_id, assistant_title):
         enabled_file_upload_message,
         type=["txt", "pdf", "csv", "json", "geojson", "xlsx", "xls"],
         disabled=st.session_state.in_progress,
-        key=f"file_uploader_{st.session_state.uploader_key}"
-        
+        key=f"file_uploader_{st.session_state.uploader_key}"  # Add this dynamic key
     )
     st.title(assistant_title if assistant_title else "")
     user_msg = st.chat_input("Message", on_submit=disable_form, disabled=st.session_state.in_progress)
@@ -250,9 +250,14 @@ def main():
         authenticator.logout(location="sidebar")
 
     with st.sidebar:
-        if st.sidebar.button("➕ Start New Chat"):
+        if st.button("➕ Start New Chat"):
             start_new_chat()
-            st.rerun()
+            st.components.v1.html(
+                """<script>window.location.reload();</script>""",
+                height=0,
+            )
+
+            
 
     if multi_agents:
         assistants_json = json.loads(multi_agents)
