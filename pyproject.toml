@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "PGX Lab Result Summarizer"
+name = "Refund Advisor"
 package-mode = false
 version = "0.1.0"
 description = ""
