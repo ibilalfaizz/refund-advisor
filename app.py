@@ -215,7 +215,7 @@ def start_new_chat():
 def load_chat_screen(assistant_id, assistant_title):
     uploaded_file = st.sidebar.file_uploader(
         enabled_file_upload_message,
-        type=["txt", "pdf", "csv", "json", "geojson", "xlsx", "xls"],
+        type=["txt", "pdf", "csv", "json", "geojson", "xlsx", "xls", 'jpg'],
         disabled=st.session_state.in_progress,
         key=f"file_uploader_{st.session_state.uploader_key}"  # Add this dynamic key
     )
